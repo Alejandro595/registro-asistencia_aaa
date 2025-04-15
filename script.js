@@ -1,217 +1,223 @@
-import FirebaseDatabase from 'https://cdn.jsdelivr.net/npm/@firebase/database@1.0.14/+esm';
+import { ref, push, onValue } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+import { getStorage, ref as storageRef, uploadBytes, getDownloadURL } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-storage.js";
 
-document.addEventListener("DOMContentLoaded", async () => {
-    const elements = {
-        video: document.getElementById("video"),
-        captureButton: document.getElementById("capture"),
-        errorMessage: document.getElementById("mensaje"),
-        feedbackMessage: document.getElementById("feedback"),
-        loginForm: document.getElementById("login-form"),
-        usernameInput: document.getElementById("username"),
-        passwordInput: document.getElementById("password"),
-        roleSelect: document.getElementById("role-select"),
-        loginButton: document.getElementById("login-button"),
-        registerButton: document.getElementById("register-button"),
-        logoutButton: document.getElementById("logout-button"),
-        attendanceTable: document.querySelector("#attendance-table tbody"),
-        adminPanel: document.getElementById("admin-panel"),
-        adminTable: document.getElementById("admin-attendance"),
-        mainContainer: document.querySelector(".container"),
-        voiceRegisterButton: document.getElementById("voice-register"),
-        voiceLoginButton: document.getElementById("voice-login")
-    };
+document.addEventListener("DOMContentLoaded", () => {
+  const db = window.firebaseDB;
+  const storage = getStorage(); // Firebase Storage
 
-    let users = JSON.parse(localStorage.getItem("users")) || {};
-    let attendance = JSON.parse(localStorage.getItem("attendance")) || [];
-    let currentUser = "";
-    let userRole = "";
-    let stream = null;
-    const successSound = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+  const elements = {
+    video: document.getElementById("video"),
+    captureButton: document.getElementById("capture"),
+    errorMessage: document.getElementById("mensaje"),
+    feedbackMessage: document.getElementById("feedback"),
+    loginForm: document.getElementById("login-form"),
+    usernameInput: document.getElementById("username"),
+    passwordInput: document.getElementById("password"),
+    roleSelect: document.getElementById("role-select"),
+    loginButton: document.getElementById("login-button"),
+    registerButton: document.getElementById("register-button"),
+    logoutButton: document.getElementById("logout-button"),
+    attendanceTable: document.querySelector("#attendance-table tbody"),
+    adminPanel: document.getElementById("admin-panel"),
+    adminTable: document.getElementById("admin-attendance"),
+    mainContainer: document.querySelector(".container"),
+    voiceRegisterButton: document.getElementById("voice-register"),
+    voiceLoginButton: document.getElementById("voice-login")
+  };
 
-    function showError(message) {
-        elements.errorMessage.textContent = `⚠️ ${message}`;
-        elements.errorMessage.style.color = "red";
+  let users = JSON.parse(localStorage.getItem("users")) || {};
+  let attendance = [];
+  let currentUser = "";
+  let userRole = "";
+  let stream = null;
+  const successSound = new Audio("https://www.soundjay.com/buttons/sounds/button-3.mp3");
+
+  function showError(message) {
+    elements.errorMessage.textContent = `⚠️ ${message}`;
+    elements.errorMessage.style.color = "red";
+  }
+
+  function showSuccess(message) {
+    elements.feedbackMessage.textContent = message;
+    elements.feedbackMessage.style.color = "green";
+    successSound.play();
+    setTimeout(() => elements.feedbackMessage.textContent = "", 3000);
+  }
+
+  async function startCamera() {
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({ video: true });
+      elements.video.srcObject = stream;
+    } catch {
+      showError("No se pudo acceder a la cámara.");
     }
+  }
 
-    function showSuccess(message) {
-        elements.feedbackMessage.textContent = message;
-        elements.feedbackMessage.style.color = "green";
-        successSound.play();
-        setTimeout(() => {
-            elements.feedbackMessage.textContent = "";
-        }, 3000);
+  function stopCamera() {
+    if (stream) stream.getTracks().forEach(track => track.stop());
+  }
+
+  function startVoiceRecognition(callback) {
+    try {
+      const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
+      recognition.lang = "es-ES";
+      recognition.start();
+      recognition.onresult = e => callback(e.results[0][0].transcript.trim());
+      recognition.onerror = () => showError("Error de reconocimiento de voz.");
+    } catch {
+      showError("Navegador no soporta reconocimiento de voz.");
     }
+  }
 
-    async function startCamera() {
-        try {
-            stream = await navigator.mediaDevices.getUserMedia({ video: true });
-            elements.video.srcObject = stream;
-        } catch (error) {
-            showError("No se pudo acceder a la cámara. Verifica los permisos.");
-        }
+  // Función de login
+  function login(username, password) {
+    if (users[username]?.password === password) {
+      currentUser = username;
+      userRole = users[username].role;
+      elements.loginForm.style.display = "none";
+      elements.mainContainer.style.display = "block";
+      elements.adminPanel.style.display = userRole === "admin" ? "block" : "none";
+      startCamera();
+      cargarAsistenciaDesdeFirebase();
+    } else {
+      showError("Credenciales incorrectas");
     }
+  }
 
-    function stopCamera() {
-        if (stream) {
-            stream.getTracks().forEach(track => track.stop());
-        }
-    }
+  // Función de registro
+  function register(username, password, role) {
+    if (!username || !password) return showError("Usuario y contraseña requeridos");
+    if (users[username]) return showError("Usuario ya registrado");
+    users[username] = { password, role };
+    localStorage.setItem("users", JSON.stringify(users));
+    showSuccess("✅ Usuario registrado");
+  }
 
-    function startVoiceRecognition(callback) {
-        try {
-            const recognition = new (window.SpeechRecognition || window.webkitSpeechRecognition)();
-            recognition.lang = "es-ES";
-            recognition.start();
-            recognition.onresult = event => callback(event.results[0][0].transcript.trim());
-            recognition.onerror = () => showError("No se pudo reconocer la voz. Inténtalo de nuevo.");
-        } catch (error) {
-            showError("Tu navegador no soporta reconocimiento de voz.");
-        }
-    }
+  // Enlace de los botones de login y registro
+  const loginButton = elements.loginButton;
+  const registerButton = elements.registerButton;
 
-    function login(username, password) {
-        if (users[username]?.password === password) {
-            currentUser = username;
-            userRole = users[username].role;
-            elements.loginForm.style.display = "none";
-            elements.mainContainer.style.display = "block";
-            elements.adminPanel.style.display = userRole === "admin" ? "block" : "none";
-            startCamera();
-            cargarAsistenciaDesdeFirebase(); // Cargar desde Firebase
-        } else {
-            showError("Credenciales incorrectas");
-        }
-    }
-
-    function register(username, password, role) {
-        if (!username || !password) {
-            showError("Debe proporcionar un nombre de usuario y una contraseña.");
-            return;
-        }
-        if (users[username]) {
-            showError("Este usuario ya está registrado.");
-            return;
-        }
-        users[username] = { password, role };
-        localStorage.setItem("users", JSON.stringify(users));
-        elements.errorMessage.textContent = "✅ Usuario registrado correctamente";
-        elements.errorMessage.style.color = "green";
-    }
-
-    elements.registerButton.addEventListener("click", () => {
-        const username = elements.usernameInput.value.trim();
-        const password = elements.passwordInput.value.trim();
-        const role = elements.roleSelect.value;
-        register(username, password, role);
+  if (loginButton && registerButton) {
+    loginButton.addEventListener("click", () => {
+      const username = elements.usernameInput.value.trim();
+      const password = elements.passwordInput.value.trim();
+      login(username, password);
     });
 
-    elements.loginButton.addEventListener("click", () => {
-        const username = elements.usernameInput.value.trim();
-        const password = elements.passwordInput.value.trim();
-        login(username, password);
+    registerButton.addEventListener("click", () => {
+      const username = elements.usernameInput.value.trim();
+      const password = elements.passwordInput.value.trim();
+      const role = elements.roleSelect.value;
+      register(username, password, role);
     });
+  }
 
-    function renderAttendanceTable() {
-        elements.attendanceTable.innerHTML = "";
-        attendance.filter(record => record.usuario === currentUser).forEach(record => {
-            const row = document.createElement("tr");
-            row.innerHTML = `<td>${record.usuario}</td><td>${record.fecha}</td><td>${record.hora}</td>`;
-            elements.attendanceTable.appendChild(row);
-        });
+  elements.captureButton.addEventListener("click", async () => {
+    if (!currentUser) return showError("Inicia sesión para registrar asistencia");
+
+    const now = new Date();
+    const fecha = now.toLocaleDateString();
+    const hora = now.toLocaleTimeString();
+
+    if (attendance.some(r => r.usuario === currentUser && r.fecha === fecha)) {
+      return showError("Ya registraste asistencia hoy");
     }
 
-    function renderAdminTable() {
-        if (userRole !== "admin") return;
-        elements.adminTable.innerHTML = "";
-        attendance.forEach((record, index) => {
-            const row = document.createElement("tr");
-            row.innerHTML = `
-                <td>${record.usuario}</td>
-                <td>${record.fecha}</td>
-                <td>${record.hora}</td>
-                <td><button class="delete-btn" data-index="${index}">Eliminar</button></td>
-            `;
-            elements.adminTable.appendChild(row);
-        });
-        document.querySelectorAll(".delete-btn").forEach(button => {
-            button.addEventListener("click", (event) => {
-                const index = event.target.getAttribute("data-index");
-                attendance.splice(index, 1);
-                localStorage.setItem("attendance", JSON.stringify(attendance));
-                renderAdminTable();
-                renderAttendanceTable();
-            });
-        });
-    }
+    // Captura de la imagen
+    const canvas = document.createElement("canvas");
+    canvas.width = elements.video.videoWidth;
+    canvas.height = elements.video.videoHeight;
+    const ctx = canvas.getContext("2d");
+    ctx.drawImage(elements.video, 0, 0, canvas.width, canvas.height);
+    canvas.toBlob(async (blob) => {
+      if (!blob) return showError("No se pudo capturar imagen");
 
-    elements.captureButton.addEventListener("click", () => {
-        if (!currentUser) {
-            showError("Debes iniciar sesión para registrar asistencia.");
-            return;
-        }
-        const now = new Date();
-        const fecha = now.toLocaleDateString();
-        if (attendance.some(record => record.usuario === currentUser && record.fecha === fecha)) {
-            showError("Ya has registrado tu asistencia hoy.");
-            return;
-        }
-        const record = { usuario: currentUser, fecha, hora: now.toLocaleTimeString() };
-        attendance.push(record);
-        localStorage.setItem("attendance", JSON.stringify(attendance));
-        guardarAsistenciaEnFirebase(record);
-        renderAttendanceTable();
-        renderAdminTable();
+      const imageRef = storageRef(storage, `asistencias/${currentUser}-${Date.now()}.jpg`);
+      await uploadBytes(imageRef, blob);
+      const imageURL = await getDownloadURL(imageRef);
+
+      const record = { usuario: currentUser, fecha, hora, imagen: imageURL };
+      guardarAsistenciaEnFirebase(record);
+    }, "image/jpeg");
+  });
+
+  // Guardar asistencia en Firebase
+  function guardarAsistenciaEnFirebase(record) {
+    const asistenciaRef = ref(db, "asistencias");
+    push(asistenciaRef, record)
+      .then(() => showSuccess("☁️ Asistencia guardada con imagen"))
+      .catch(() => showError("❌ Error al guardar en la nube"));
+  }
+
+  // Cargar asistencia desde Firebase
+  function cargarAsistenciaDesdeFirebase() {
+    const asistenciaRef = ref(db, "asistencias");
+    onValue(asistenciaRef, snapshot => {
+      const data = snapshot.val();
+      attendance = [];
+      for (const key in data) attendance.push(data[key]);
+      renderAttendanceTable();
+      renderAdminTable();
     });
+  }
 
-    elements.logoutButton?.addEventListener("click", () => {
-        currentUser = "";
-        userRole = "";
-        elements.loginForm.style.display = "block";
-        elements.mainContainer.style.display = "none";
-        elements.adminPanel.style.display = "none";
-        stopCamera();
+  // Renderizar la tabla de asistencia
+  function renderAttendanceTable() {
+    elements.attendanceTable.innerHTML = "";
+    attendance.filter(r => r.usuario === currentUser).forEach(r => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${r.usuario}</td>
+        <td>${r.fecha}</td>
+        <td>${r.hora}</td>
+        <td><a href="${r.imagen}" target="_blank">Ver Foto</a></td>`;
+      elements.attendanceTable.appendChild(row);
     });
+  }
 
-    elements.voiceRegisterButton.addEventListener("click", () => {
-        startVoiceRecognition(username => {
-            startVoiceRecognition(password => {
-                register(username, password, elements.roleSelect.value);
-            });
-        });
+  // Renderizar la tabla de administración
+  function renderAdminTable() {
+    if (userRole !== "admin") return;
+    elements.adminTable.innerHTML = "";
+    attendance.forEach(r => {
+      const row = document.createElement("tr");
+      row.innerHTML = `
+        <td>${r.usuario}</td>
+        <td>${r.fecha}</td>
+        <td>${r.hora}</td>
+        <td><a href="${r.imagen}" target="_blank">Ver Foto</a></td>`;
+      elements.adminTable.appendChild(row);
     });
+  }
 
-    elements.voiceLoginButton.addEventListener("click", () => {
-        startVoiceRecognition(username => {
-            startVoiceRecognition(password => {
-                login(username, password);
-            });
-        });
-    });
-
+  // Logout
+  elements.logoutButton?.addEventListener("click", () => {
+    currentUser = "";
+    userRole = "";
+    elements.loginForm.style.display = "block";
     elements.mainContainer.style.display = "none";
     elements.adminPanel.style.display = "none";
+    stopCamera();
+  });
 
-    // Función para guardar en Firebase
-    function guardarAsistenciaEnFirebase(record) {
-        db.ref("asistencias").push(record, error => {
-            if (error) {
-                showError("❌ Error al guardar en la nube");
-            } else {
-                showSuccess("☁️ Asistencia guardada en la nube");
-            }
-        });
-    }
+  // Voz registro
+  elements.voiceRegisterButton.addEventListener("click", () => {
+    startVoiceRecognition(username => {
+      startVoiceRecognition(password => {
+        register(username, password, elements.roleSelect.value);
+      });
+    });
+  });
 
-    // Función para cargar asistencia desde Firebase
-    function cargarAsistenciaDesdeFirebase() {
-        db.ref("asistencias").on("value", snapshot => {
-            const data = snapshot.val();
-            attendance = [];
-            for (const key in data) {
-                attendance.push(data[key]);
-            }
-            renderAttendanceTable();
-            renderAdminTable();
-        });
-    }
+  // Voz login
+  elements.voiceLoginButton.addEventListener("click", () => {
+    startVoiceRecognition(username => {
+      startVoiceRecognition(password => {
+        login(username, password);
+      });
+    });
+  });
+
+  elements.mainContainer.style.display = "none";
+  elements.adminPanel.style.display = "none";
 });
