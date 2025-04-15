@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link type="text/css" rel="stylesheet" href="style.css"/>
+  </head>
+  <body>
+    <!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Registro de Asistencia</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div id="login-form">
+        <h2>Iniciar Sesión / Registrarse</h2>
+        <input type="text" id="username" placeholder="Usuario">
+        <input type="password" id="password" placeholder="Contraseña">
+        <select id="role-select">
+            <option value="user">Usuario</option>
+            <option value="admin">Administrador</option>
+        </select>
+        <p id="mensaje"></p>
+        <div class="button-group">
+            <button id="login-button"><i class="fa-solid fa-right-to-bracket"></i> Ingresar</button>
+            <button id="register-button"><i class="fa-solid fa-user-plus"></i> Registrarse</button>
+            <button id="voice-login"><i class="fa-solid fa-microphone"></i> Iniciar por Voz</button>
+            <button id="voice-register"><i class="fa-solid fa-microphone-lines"></i> Registro por Voz</button>
+        </div>
+    </div>
+
+    <div class="container" style="display: none;">
+        <h1>Registro de Asistencia</h1>
+        <button id="logout-button"><i class="fa-solid fa-door-open"></i> Cerrar Sesión</button>
+        <p>Presiona el botón para registrar tu asistencia.</p>
+        <div class="video-container">
+            <video id="video" autoplay playsinline></video>
+        </div>
+        <button id="capture"><i class="fa-solid fa-camera"></i> Capturar Asistencia</button>
+
+        <div id="feedback" style="color: green; margin-top: 10px;"></div>
+
+        <h2>Lista de Asistencia</h2>
+        <table id="attendance-table">
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                </tr>
+            </thead>
+            <tbody></tbody>
+        </table>
+    </div>
+
+    <div id="admin-panel" class="admin-container" style="display: none;">
+        <h2>Panel de Administrador</h2>
+        <table>
+            <thead>
+                <tr>
+                    <th>Usuario</th>
+                    <th>Fecha</th>
+                    <th>Hora</th>
+                    <th>Acciones</th>
+                </tr>
+            </thead>
+            <tbody id="admin-attendance"></tbody>
+        </table>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.8.1/firebase-database-compat.js"></script>
+
+    <script>
+      const firebaseConfig = {
+  apiKey: "AIzaSyBQFdu36zRwL8OpoX6883pOuDyqcakfurY",
+  authDomain: "asistencia-docentes-9de71.firebaseapp.com",
+  projectId: "asistencia-docentes-9de71",
+  storageBucket: "asistencia-docentes-9de71.firebasestorage.app",
+  messagingSenderId: "933641363169",
+  appId: "1:933641363169:web:5001d5ad0a37a0e4e8e1a0",
+  measurementId: "G-HYF7KLQ5NZ"
+};
+
+// Initialize Firebase
+const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
+    </script>
+
+    <script src="script.js"></script>
+</body>
+</html>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>
