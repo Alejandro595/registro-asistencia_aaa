@@ -1,0 +1,617 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <link type="text/css" rel="stylesheet" href="style.css"/>
+  </head>
+  <body>
+    <!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>Registro de Asistencia</title>
+  <script type="module" src="https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      text-align: center;
+      background:
+        linear-gradient(to bottom, rgba(0, 0, 0, 0.8), rgba(204, 0, 0, 0.6), rgba(0, 0, 0, 0.8)),
+        url("https://upload.wikimedia.org/wikipedia/commons/thumb/5/5c/Escudo_de_la_Universidad_Libre_de_Colombia.svg/2048px-Escudo_de_la_Universidad_Libre_de_Colombia.svg.png")
+        no-repeat center center fixed;
+      background-size: cover;
+      color: #fff;
+      margin: 0;
+      padding: 0;
+    }
+
+    .container, #login-form {
+      margin: 60px auto;
+      padding: 30px;
+      background: #ffffffee;
+      width: 90%;
+      max-width: 600px;
+      border-radius: 15px;
+      box-shadow: 0 8px 20px rgba(0, 0, 0, 0.3);
+      color: #222;
+    }
+
+    h2, h3 {
+      color: #c62828;
+      margin-bottom: 20px;
+      font-weight: bold;
+    }
+
+    button {
+      margin-top: 20px;
+      padding: 14px 28px;
+      border: none;
+      background: #c62828;
+      color: white;
+      font-size: 16px;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+    }
+
+    button:hover {
+      background: #000000;
+      transform: scale(1.05);
+    }
+
+    input, select {
+      width: 95%;
+      padding: 12px;
+      margin-top: 12px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      font-size: 16px;
+      box-shadow: inset 0 1px 2px rgba(0, 0, 0, 0.1);
+    }
+
+    .video-container {
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      width: 100%;
+      max-width: 340px;
+      height: 240px;
+      margin: 25px auto;
+      background: black;
+      border-radius: 15px;
+      overflow: hidden;
+      box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+    }
+
+    #video {
+      width: 100%;
+      height: 100%;
+      object-fit: cover;
+      transform: scaleX(-1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 30px;
+      background: #f9f9f9;
+      color: #333;
+      border-radius: 8px;
+      overflow: hidden;
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+    }
+
+    th, td {
+      border: 1px solid #ddd;
+      padding: 12px;
+      text-align: center;
+    }
+
+    th {
+      background: #c62828;
+      color: white;
+    }
+
+    .admin-container {
+      display: none;
+    }
+
+    #loader {
+      font-weight: bold;
+      margin-top: 20px;
+      color: #2e7d32;
+      display: none;
+    }
+
+    .flash {
+      animation: flash 0.3s ease-in-out;
+    }
+
+    @keyframes flash {
+      0% { background-color: #c62828; }
+      100% { background-color: #000; }
+    }
+
+    .delete-btn {
+      background-color: #e53935;
+      border: none;
+      color: white;
+      padding: 8px 12px;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: background-color 0.3s;
+    }
+
+    .delete-btn:hover {
+      background-color: #b71c1c;
+    }
+
+    #message-popup {
+      position: fixed;
+      top: 10px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 12px 20px;
+      background-color: rgba(255, 0, 0, 0.8);
+      color: white;
+      border-radius: 8px;
+      font-size: 16px;
+      display: none;
+      z-index: 9999;
+    }
+
+    /* Breadcrumb style */
+    nav#breadcrumb {
+      margin: 15px auto;
+      width: 90%;
+      max-width: 600px;
+      font-size: 14px;
+      color: white;
+      text-align: left;
+      user-select: none;
+    }
+    nav#breadcrumb span {
+      cursor: pointer;
+      text-decoration: underline;
+    }
+    nav#breadcrumb span.current {
+      text-decoration: none;
+      cursor: default;
+      font-weight: bold;
+    }
+
+    /* NUEVO: estilos para filtros admin */
+    #admin-filters {
+      margin: 15px 0 10px;
+      display: flex;
+      gap: 10px;
+      justify-content: center;
+      flex-wrap: wrap;
+    }
+    #admin-filters input {
+      width: auto;
+      max-width: 150px;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+  <!-- Breadcrumb -->
+  <nav id="breadcrumb"></nav>
+
+  <div id="login-form">
+    <h2>🎓 Registro de Asistencia</h2>
+    <input type="text" id="username" placeholder="Usuario" />
+    <input type="password" id="password" placeholder="Contraseña" />
+    <select id="role-select">
+      <option value="Usuario">Docente</option>
+      <option value="admin">Administrador</option>
+    </select>
+    <button id="login-button">🔓 Iniciar sesión</button>
+    <button id="register-button">📝 Registrarse</button>
+    <button id="voice-login">🎤 Iniciar con voz</button>
+    <button id="voice-register">🎤 Registrar con voz</button>
+    <p id="mensaje"></p>
+    <p id="feedback"></p>
+  </div>
+
+  <div class="container" style="display:none;">
+    <h2 id="welcome-title">Bienvenido</h2>
+    <div class="video-container"><video id="video" autoplay></video></div>
+    <button id="capture">✅ Registrar Asistencia</button>
+    <p id="loader">Registrando asistencia...</p>
+    <button id="logout-button">⏏️ Cerrar sesión</button>
+
+    <h3>📊 Asistencia registrada</h3>
+    <table id="attendance-table">
+      <thead><tr><th>Usuario</th><th>Fecha</th><th>Hora</th></tr></thead>
+      <tbody></tbody>
+    </table>
+
+    <div id="admin-panel" class="admin-container">
+      <h3>🛠 Panel de Administrador</h3>
+      <!-- FILTROS NUEVOS -->
+      <div id="admin-filters">
+        <input type="text" id="filter-user" placeholder="Filtrar por usuario" />
+        <input type="date" id="filter-date" />
+        <button id="clear-filters">Limpiar filtros</button>
+      </div>
+      <button id="download-excel">📥 Descargar Excel</button>
+      <table id="admin-attendance">
+        <thead><tr><th>Usuario</th><th>Rol</th><th>Fecha</th><th>Hora</th><th>Acción</th></tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-app.js";
+    import { getDatabase, ref, push, onValue, remove } from "https://www.gstatic.com/firebasejs/10.11.0/firebase-database.js";
+    import * as XLSX from "https://cdn.sheetjs.com/xlsx-0.20.0/package/xlsx.mjs";
+
+    const firebaseConfig = {
+      apiKey: "AIzaSyBQFdu36zRwL8OpoX6883pOuDyqcakfurY",
+      authDomain: "asistencia-docentes-9de71.firebaseapp.com",
+      databaseURL: "https://asistencia-docentes-9de71-default-rtdb.firebaseio.com",
+      projectId: "asistencia-docentes-9de71",
+      storageBucket: "asistencia-docentes-9de71.appspot.com",
+      messagingSenderId: "535964294750",
+      appId: "1:535964294750:web:d8b7a51f59d2951115c7ef"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getDatabase(app);
+    const asistenciaRef = ref(db, "asistencia");
+    const usuariosRef = ref(db, "usuarios");
+
+    // ELEMENTOS DOM
+    const loginForm = document.getElementById("login-form");
+    const container = document.querySelector(".container");
+    const video = document.getElementById("video");
+    const captureBtn = document.getElementById("capture");
+    const logoutBtn = document.getElementById("logout-button");
+    const attendanceTable = document.getElementById("attendance-table").querySelector("tbody");
+    const adminPanel = document.getElementById("admin-panel");
+    const adminAttendanceTable = document.getElementById("admin-attendance").querySelector("tbody");
+    const downloadExcelBtn = document.getElementById("download-excel");
+    const welcomeTitle = document.getElementById("welcome-title");
+    const breadcrumb = document.getElementById("breadcrumb");
+
+    // NUEVOS FILTROS ADMIN
+    const filterUserInput = document.getElementById("filter-user");
+    const filterDateInput = document.getElementById("filter-date");
+    const clearFiltersBtn = document.getElementById("clear-filters");
+
+    // VARIABLES DE SESIÓN
+    let currentUser = null;
+    let currentRole = null;
+
+    // --- Funciones Auxiliares ---
+
+    // Mostrar mensaje popup
+    function showMessage(msg, duration = 3000) {
+      let popup = document.getElementById("message-popup");
+      if (!popup) {
+        popup = document.createElement("div");
+        popup.id = "message-popup";
+        document.body.appendChild(popup);
+      }
+      popup.textContent = msg;
+      popup.style.display = "block";
+      setTimeout(() => {
+        popup.style.display = "none";
+      }, duration);
+    }
+
+    // Actualizar breadcrumb
+    function updateBreadcrumb(pathArray) {
+      breadcrumb.innerHTML = "";
+      pathArray.forEach((crumb, i) => {
+        const span = document.createElement("span");
+        span.textContent = crumb;
+        if (i === pathArray.length - 1) {
+          span.classList.add("current");
+        } else {
+          span.onclick = () => {
+            // Manejo básico: si clickean, mostrar mensaje porque solo hay 2 estados
+            showMessage("Navegación no implementada en demo.");
+          };
+        }
+        breadcrumb.appendChild(span);
+        if (i < pathArray.length - 1) breadcrumb.appendChild(document.createTextNode(" > "));
+      });
+    }
+
+    // Limpiar tabla tbody
+    function clearTableBody(tbody) {
+      while (tbody.firstChild) {
+        tbody.removeChild(tbody.firstChild);
+      }
+    }
+
+    // Renderizar tabla personal (solo registros del usuario)
+    function renderUserTable(entries) {
+      clearTableBody(attendanceTable);
+      entries.forEach(({ usuario, fecha, hora }) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `<td>${usuario}</td><td>${fecha}</td><td>${hora}</td>`;
+        attendanceTable.appendChild(tr);
+      });
+    }
+
+    // Renderizar tabla admin (con filtro aplicado)
+    function renderAdminTable(entries) {
+      clearTableBody(adminAttendanceTable);
+      entries.forEach(({ key, usuario, rol, fecha, hora }) => {
+        const tr = document.createElement("tr");
+        tr.innerHTML = `
+          <td>${usuario}</td>
+          <td>${rol}</td>
+          <td>${fecha}</td>
+          <td>${hora}</td>
+          <td><button class="delete-btn" data-key="${key}">Eliminar</button></td>
+        `;
+        adminAttendanceTable.appendChild(tr);
+      });
+
+      // Agregar eventos a botones eliminar
+      adminAttendanceTable.querySelectorAll(".delete-btn").forEach(btn => {
+        btn.onclick = () => {
+          const key = btn.getAttribute("data-key");
+          remove(ref(db, `asistencia/${key}`)).then(() => {
+            showMessage("Registro eliminado");
+          });
+        };
+      });
+    }
+
+    // Obtener fecha y hora actuales en formato legible
+    function getCurrentDateTime() {
+      const now = new Date();
+      const fecha = now.toLocaleDateString("es-ES");
+      const hora = now.toLocaleTimeString("es-ES", { hour12: false });
+      return { fecha, hora };
+    }
+
+    // FILTRO ADMIN: Aplica filtros de usuario y fecha con coincidencias (contains)
+    function applyAdminFilters(data) {
+      let filtered = data;
+      const filterUser = filterUserInput.value.trim().toLowerCase();
+      const filterDate = filterDateInput.value;
+
+      if (filterUser) {
+        filtered = filtered.filter(entry =>
+          entry.usuario.toLowerCase().includes(filterUser)
+        );
+      }
+      if (filterDate) {
+        filtered = filtered.filter(entry =>
+          entry.fecha === filterDate
+        );
+      }
+      return filtered;
+    }
+
+    // Exportar tabla admin filtrada a Excel
+    function exportToExcel(data) {
+      // Mapear data para exportar sin key ni botón
+      const exportData = data.map(({ usuario, rol, fecha, hora }) => ({
+        Usuario: usuario,
+        Rol: rol,
+        Fecha: fecha,
+        Hora: hora
+      }));
+
+      const ws = XLSX.utils.json_to_sheet(exportData);
+      const wb = XLSX.utils.book_new();
+      XLSX.utils.book_append_sheet(wb, ws, "Asistencia");
+      XLSX.writeFile(wb, "asistencia.xlsx");
+    }
+
+    // --- Lógica Login, Registro, y sesión ---
+
+    // Simula verificación login simple (en Firebase usuarios)
+    async function verifyUser(username, password, role) {
+      return new Promise((resolve) => {
+        onValue(usuariosRef, (snapshot) => {
+          let found = false;
+          snapshot.forEach(childSnap => {
+            const userData = childSnap.val();
+            if (userData.usuario === username && userData.password === password && userData.rol === role) {
+              found = true;
+            }
+          });
+          resolve(found);
+        }, { onlyOnce: true });
+      });
+    }
+
+    // Registro de usuario simple en Firebase
+    async function registerUser(username, password, role) {
+      return new Promise((resolve, reject) => {
+        onValue(usuariosRef, (snapshot) => {
+          let exists = false;
+          snapshot.forEach(childSnap => {
+            const userData = childSnap.val();
+            if (userData.usuario === username) exists = true;
+          });
+          if (exists) {
+            reject("Usuario ya existe");
+          } else {
+            push(usuariosRef, { usuario: username, password: password, rol: role });
+            resolve();
+          }
+        }, { onlyOnce: true });
+      });
+    }
+
+    // Guardar asistencia
+    async function saveAttendance(usuario, rol) {
+      const { fecha, hora } = getCurrentDateTime();
+      await push(asistenciaRef, { usuario, rol, fecha, hora });
+      showMessage("Asistencia registrada con éxito");
+    }
+
+    // --- Eventos UI ---
+
+    document.getElementById("login-button").onclick = async () => {
+      const user = document.getElementById("username").value.trim();
+      const pass = document.getElementById("password").value.trim();
+      const role = document.getElementById("role-select").value;
+
+      if (!user || !pass) {
+        showMessage("Complete usuario y contraseña");
+        return;
+      }
+
+      const verified = await verifyUser(user, pass, role);
+      if (verified) {
+        currentUser = user;
+        currentRole = role;
+        loginForm.style.display = "none";
+        container.style.display = "block";
+        welcomeTitle.textContent = `Bienvenido, ${currentUser}`;
+        updateBreadcrumb(["Inicio", "Asistencia"]);
+        if (currentRole === "admin") {
+          adminPanel.style.display = "block";
+          loadAdminData();
+        } else {
+          adminPanel.style.display = "none";
+          loadUserData();
+        }
+        startCamera();
+      } else {
+        showMessage("Usuario o contraseña incorrectos");
+      }
+    };
+
+    document.getElementById("register-button").onclick = async () => {
+      const user = document.getElementById("username").value.trim();
+      const pass = document.getElementById("password").value.trim();
+      const role = document.getElementById("role-select").value;
+
+      if (!user || !pass) {
+        showMessage("Complete usuario y contraseña");
+        return;
+      }
+
+      try {
+        await registerUser(user, pass, role);
+        showMessage("Registro exitoso, ahora inicie sesión");
+      } catch (e) {
+        showMessage(e);
+      }
+    };
+
+    logoutBtn.onclick = () => {
+      currentUser = null;
+      currentRole = null;
+      loginForm.style.display = "block";
+      container.style.display = "none";
+      stopCamera();
+      clearTableBody(attendanceTable);
+      clearTableBody(adminAttendanceTable);
+      filterUserInput.value = "";
+      filterDateInput.value = "";
+      updateBreadcrumb(["Inicio"]);
+    };
+
+    captureBtn.onclick = async () => {
+      if (!currentUser) {
+        showMessage("No hay usuario logueado");
+        return;
+      }
+      captureBtn.disabled = true;
+      document.getElementById("loader").style.display = "block";
+
+      await saveAttendance(currentUser, currentRole);
+
+      if (currentRole === "admin") {
+        await loadAdminData();
+      } else {
+        await loadUserData();
+      }
+
+      document.getElementById("loader").style.display = "none";
+      captureBtn.disabled = false;
+    };
+
+    // --- Cámara (simplificada) ---
+    let stream = null;
+    async function startCamera() {
+      try {
+        stream = await navigator.mediaDevices.getUserMedia({ video: true });
+        video.srcObject = stream;
+      } catch (err) {
+        showMessage("Error accediendo a cámara");
+      }
+    }
+    function stopCamera() {
+      if (stream) {
+        stream.getTracks().forEach(track => track.stop());
+      }
+    }
+
+    // --- Carga y renderización de datos ---
+
+    async function loadUserData() {
+      onValue(asistenciaRef, (snapshot) => {
+        const data = [];
+        snapshot.forEach(childSnap => {
+          const entry = childSnap.val();
+          if (entry.usuario === currentUser) {
+            data.push(entry);
+          }
+        });
+        renderUserTable(data);
+      });
+    }
+
+    // Carga y renderiza datos admin con filtro
+    async function loadAdminData() {
+      onValue(asistenciaRef, (snapshot) => {
+        const data = [];
+        snapshot.forEach(childSnap => {
+          const entry = childSnap.val();
+          data.push({ key: childSnap.key, ...entry });
+        });
+        const filtered = applyAdminFilters(data);
+        renderAdminTable(filtered);
+      });
+    }
+
+    // Evento filtros admin
+    filterUserInput.oninput = loadAdminData;
+    filterDateInput.onchange = loadAdminData;
+    clearFiltersBtn.onclick = () => {
+      filterUserInput.value = "";
+      filterDateInput.value = "";
+      loadAdminData();
+    };
+
+    // Exportar Excel desde admin filtrado
+    downloadExcelBtn.onclick = () => {
+      onValue(asistenciaRef, (snapshot) => {
+        const data = [];
+        snapshot.forEach(childSnap => {
+          const entry = childSnap.val();
+          data.push({ key: childSnap.key, ...entry });
+        });
+        const filtered = applyAdminFilters(data);
+        exportToExcel(filtered);
+      }, { onlyOnce: true });
+    };
+
+    // Breadcrumb inicial
+    updateBreadcrumb(["Inicio"]);
+
+    // -- Funciones voz y búsqueda con coincidencias para admin --
+    // (Podrías agregar aquí más funcionalidades de voz)
+
+  </script>
+</body>
+</html>
+
+    <script type="module" src="script.js"></script>
+  </body>
+</html>
